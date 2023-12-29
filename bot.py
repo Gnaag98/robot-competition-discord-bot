@@ -11,10 +11,7 @@ GUILD_ID = int(os.getenv('GUILD_ID'))
 
 YEAR_ROLE_PREFIX = os.getenv('YEAR_ROLE_PREFIX')
 BADGE_ROLE_PREFIX = os.getenv('BADGE_ROLE_PREFIX')
-
-FIRST_YEAR_ROLE = os.getenv('FIRST_YEAR_ROLE')
-SECOND_YEAR_ROLE = os.getenv('SECOND_YEAR_ROLE')
-THIRD_YEAR_OR_MORE_ROLE = os.getenv('THIRD_YEAR_OR_MORE_ROLE')
+BADGE_ROLE_SUFFIX = os.getenv('BADGE_ROLE_SUFFIX')
 
 intents = discord.Intents.default()
 intents.members = True
@@ -23,29 +20,18 @@ client = discord.Client(intents=intents)
 
 
 async def adjust_badge_roles(member: Member):
-    first_year_role = discord.utils.get(
-        member.guild.roles,
-        name=FIRST_YEAR_ROLE)
-    if not first_year_role:
-        raise RuntimeError(f'Role "{FIRST_YEAR_ROLE}" not found')
+    badge_roles = [
+        role for role in member.guild.roles
+        if role.name.startswith(BADGE_ROLE_PREFIX)
+        and role.name.endswith(BADGE_ROLE_SUFFIX)]
 
-    second_year_role = discord.utils.get(
-        member.guild.roles,
-        name=SECOND_YEAR_ROLE)
-    if not second_year_role:
-        raise RuntimeError(f'Role "{SECOND_YEAR_ROLE}" not found')
-
-    third_year_or_more_role = discord.utils.get(
-        member.guild.roles,
-        name=THIRD_YEAR_OR_MORE_ROLE)
-    if not third_year_or_more_role:
-        raise RuntimeError(f'Role "{THIRD_YEAR_OR_MORE_ROLE}" not found')
     
+    # Add None to the list of badge roles so that the index correspond to the
+    # number of years participated. This works because the roles are retrieved
+    # from lowest role to highest.
     badge_roles = (
         None,
-        first_year_role,
-        second_year_role,
-        third_year_or_more_role
+        *badge_roles
     )
     
     current_year_roles = [
