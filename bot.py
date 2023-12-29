@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+GUILD_ID = int(os.getenv('GUILD_ID'))
 
 YEAR_ROLE_PREFIX = os.getenv('YEAR_ROLE_PREFIX')
 BADGE_ROLE_PREFIX = os.getenv('BADGE_ROLE_PREFIX')
@@ -67,13 +68,24 @@ async def adjust_badge_roles(member: Member):
 
     # Add and remove roles as necessary.
     if correct_badge_role and not correct_badge_role in current_badge_roles:
+        print(f'Adding role {correct_badge_role.name} to {member.name}')
         await member.add_roles(correct_badge_role)
-    await member.remove_roles(*roles_to_remove)
+    if roles_to_remove:
+        print(f'Removing roles {", ".join(role.name for role in roles_to_remove)} from {member.name}')
+        await member.remove_roles(*roles_to_remove)
 
 
 @client.event
 async def on_ready():
     print(f'{client.user} has connected to Discord!')
+
+    guild = client.get_guild(GUILD_ID)
+
+    print('Adjusting roles...')
+    for member in guild.members:
+        await adjust_badge_roles(member)
+    
+    print('Done adjusting roles.')
 
 
 @client.event
