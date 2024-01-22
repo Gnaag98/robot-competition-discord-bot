@@ -90,4 +90,9 @@ async def on_member_update(before: Member, after: Member):
             await adjust_badge_roles(after)
 
 
-client.run(DISCORD_TOKEN)
+def main():
+    client.run(DISCORD_TOKEN)
+
+
+if __name__ == '__main__':
+    main()
