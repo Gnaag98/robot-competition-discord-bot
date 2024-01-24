@@ -10,6 +10,8 @@ from house_robot import HouseRobot, RoleAffixes
 load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD_ID = int(os.getenv('GUILD_ID'))
+DOOR_BELL_CHANNEL_NAME = os.getenv('DOOR_BELL_CHANNEL_NAME')
+DOOR_BELL_RESPONSE = os.getenv('DOOR_BELL_RESPONSE')
 
 ROLE_AFFIXES = RoleAffixes(
     year_prefix=os.getenv('YEAR_ROLE_PREFIX'),
@@ -27,13 +29,13 @@ async def main():
 
     while True:
         try:
-            # XXX: Recreates client since I don't know how to reuse it.
-            client = HouseRobot(GUILD_ID, ROLE_AFFIXES, intents=intents)
+            # XXX: Recreate client since I don't know how to reuse it.
+            client = HouseRobot(GUILD_ID, DOOR_BELL_CHANNEL_NAME, DOOR_BELL_RESPONSE, ROLE_AFFIXES, intents=intents)
             await client.start(DISCORD_TOKEN)
             break
         except ClientConnectorError:
             print('Connection failed.')
-            # XXX: Closes the client since it is recreated each time.
+            # XXX: Close the client since it is recreated each time.
             await client.close()
             print(f'Retrying in { wait_time_seconds } seconds...')
             await asyncio.sleep(wait_time_seconds)

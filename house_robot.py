@@ -1,6 +1,6 @@
 from attr import dataclass
 
-from discord import Client, Member
+from discord import Client, Member, Message
 
 
 @dataclass
@@ -14,10 +14,12 @@ class RoleAffixes:
 class HouseRobot(Client):
     """Custom client."""
 
-    def __init__(self, guild_id: int, affixes: RoleAffixes, *args, **kwargs):
+    def __init__(self, guild_id: int, door_bell_channel_name: str, door_bell_response: str, affixes: RoleAffixes, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
         self.guild_id = guild_id
+        self.door_bell_channel_name = door_bell_channel_name
+        self.door_bell_response = door_bell_response
         self.role_affixes = affixes
     
 
@@ -46,6 +48,19 @@ class HouseRobot(Client):
             # roles appear in the same order.
             if year_roles_before != year_roles_after:
                 await self.adjust_badge_roles(after)
+
+
+    async def on_message(self, message: Message):
+        # Ignore messages from other channels.
+        if message.channel.name != self.door_bell_channel_name:
+            return
+        
+        # Ignore messages from bots. Prevents infinite loops.
+        if message.author.bot:
+            return
+        
+        # Respond to the request to open the door by writing a message in the same channel.
+        await message.channel.send(self.door_bell_response)
     
 
     async def adjust_badge_roles(self, member: Member):
