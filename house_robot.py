@@ -62,16 +62,16 @@ class HouseRobot(Client):
         if message.author.bot:
             return
 
+        # Only allow some members to ring the doorbell.
+        author_roles = [role.name for role in message.author.roles]
+        if not self.doorbell_role in author_roles:
+            return
+
         # Toggle pin to ring door bell.
         pin = DigitalOutputDevice(self.doorbell_pin)
         pin.on()
         await sleep(0.5)
         pin.off()
-
-        # Only allow some members to ring the doorbell.
-        author_roles = [role.name for role in message.author.roles]
-        if not self.doorbell_role in author_roles:
-            return
 
         # Respond to the request to open the door by writing a message in the same channel.
         await message.channel.send(self.doorbell_response)
