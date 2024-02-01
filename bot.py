@@ -10,8 +10,10 @@ from house_robot import HouseRobot, RoleAffixes
 load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD_ID = int(os.getenv('GUILD_ID'))
-DOOR_BELL_CHANNEL_NAME = os.getenv('DOOR_BELL_CHANNEL_NAME')
-DOOR_BELL_RESPONSE = os.getenv('DOOR_BELL_RESPONSE')
+
+DOORBELL_PIN = int(os.getenv('DOORBELL_PIN'))
+DOORBELL_CHANNEL_NAME = os.getenv('DOORBELL_CHANNEL_NAME')
+DOORBELL_RESPONSE = os.getenv('DOORBELL_RESPONSE')
 
 ROLE_AFFIXES = RoleAffixes(
     year_prefix=os.getenv('YEAR_ROLE_PREFIX'),
@@ -30,7 +32,7 @@ async def main():
     while True:
         try:
             # XXX: Recreate client since I don't know how to reuse it.
-            client = HouseRobot(GUILD_ID, DOOR_BELL_CHANNEL_NAME, DOOR_BELL_RESPONSE, ROLE_AFFIXES, intents=intents)
+            client = HouseRobot(GUILD_ID, DOORBELL_PIN, DOORBELL_CHANNEL_NAME, DOORBELL_RESPONSE, ROLE_AFFIXES, intents=intents)
             await client.start(DISCORD_TOKEN)
             break
         except ClientConnectorError:

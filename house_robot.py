@@ -1,7 +1,8 @@
 from attr import dataclass
 
 from discord import Client, Member, Message
-
+from gpiozero import DigitalOutputDevice
+from asyncio import sleep
 
 @dataclass
 class RoleAffixes:
@@ -14,12 +15,13 @@ class RoleAffixes:
 class HouseRobot(Client):
     """Custom client."""
 
-    def __init__(self, guild_id: int, door_bell_channel_name: str, door_bell_response: str, affixes: RoleAffixes, *args, **kwargs):
+    def __init__(self, guild_id: int, doorbell_pin: int, doorbell_channel_name: str, doorbell_response: str, affixes: RoleAffixes, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
         self.guild_id = guild_id
-        self.door_bell_channel_name = door_bell_channel_name
-        self.door_bell_response = door_bell_response
+        self.doorbell_pin = doorbell_pin
+        self.doorbell_channel_name = doorbell_channel_name
+        self.doorbell_response = doorbell_response
         self.role_affixes = affixes
     
 
@@ -52,15 +54,21 @@ class HouseRobot(Client):
 
     async def on_message(self, message: Message):
         # Ignore messages from other channels.
-        if message.channel.name != self.door_bell_channel_name:
+        if message.channel.name != self.doorbell_channel_name:
             return
         
         # Ignore messages from bots. Prevents infinite loops.
         if message.author.bot:
             return
-        
+
+        # Toggle pin to ring door bell.
+        pin = DigitalOutputDevice(self.doorbell_pin)
+        pin.on()
+        await sleep(0.5)
+        pin.off()
+
         # Respond to the request to open the door by writing a message in the same channel.
-        await message.channel.send(self.door_bell_response)
+        await message.channel.send(self.doorbell_response)
     
 
     async def adjust_badge_roles(self, member: Member):
