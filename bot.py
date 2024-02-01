@@ -12,6 +12,7 @@ DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD_ID = int(os.getenv('GUILD_ID'))
 
 DOORBELL_PIN = int(os.getenv('DOORBELL_PIN'))
+DOORBELL_ROLE = os.getenv('DOORBELL_ROLE')
 DOORBELL_CHANNEL_NAME = os.getenv('DOORBELL_CHANNEL_NAME')
 DOORBELL_RESPONSE = os.getenv('DOORBELL_RESPONSE')
 
@@ -32,7 +33,7 @@ async def main():
     while True:
         try:
             # XXX: Recreate client since I don't know how to reuse it.
-            client = HouseRobot(GUILD_ID, DOORBELL_PIN, DOORBELL_CHANNEL_NAME, DOORBELL_RESPONSE, ROLE_AFFIXES, intents=intents)
+            client = HouseRobot(GUILD_ID, DOORBELL_PIN, DOORBELL_ROLE, DOORBELL_CHANNEL_NAME, DOORBELL_RESPONSE, ROLE_AFFIXES, intents=intents)
             await client.start(DISCORD_TOKEN)
             break
         except ClientConnectorError:
