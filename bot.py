@@ -1,3 +1,4 @@
+import json
 import os
 
 import asyncio
@@ -14,7 +15,6 @@ GUILD_ID = int(os.getenv('GUILD_ID'))
 DOORBELL_PIN = int(os.getenv('DOORBELL_PIN'))
 DOORBELL_ROLE = os.getenv('DOORBELL_ROLE')
 DOORBELL_CHANNEL_NAME = os.getenv('DOORBELL_CHANNEL_NAME')
-DOORBELL_RESPONSE = os.getenv('DOORBELL_RESPONSE')
 
 ROLE_AFFIXES = RoleAffixes(
     year_prefix=os.getenv('YEAR_ROLE_PREFIX'),
@@ -32,8 +32,11 @@ async def main():
 
     while True:
         try:
+            with open('responses.json', encoding='utf-8') as json_file:
+                doorbell_responses = json.load(json_file)
+
             # XXX: Recreate client since I don't know how to reuse it.
-            client = HouseRobot(GUILD_ID, DOORBELL_PIN, DOORBELL_ROLE, DOORBELL_CHANNEL_NAME, DOORBELL_RESPONSE, ROLE_AFFIXES, intents=intents)
+            client = HouseRobot(GUILD_ID, DOORBELL_PIN, DOORBELL_ROLE, DOORBELL_CHANNEL_NAME, doorbell_responses, ROLE_AFFIXES, intents=intents)
             await client.start(DISCORD_TOKEN)
             break
         except ClientConnectorError:

@@ -15,14 +15,14 @@ class RoleAffixes:
 class HouseRobot(Client):
     """Custom client."""
 
-    def __init__(self, guild_id: int, doorbell_pin: int, doorbell_role: str, doorbell_channel_name: str, doorbell_response: str, affixes: RoleAffixes, *args, **kwargs):
+    def __init__(self, guild_id: int, doorbell_pin: int, doorbell_role: str, doorbell_channel_name: str, doorbell_responses: dict, affixes: RoleAffixes, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
         self.guild_id = guild_id
         self.doorbell_role = doorbell_role
         self.doorbell_pin = doorbell_pin
         self.doorbell_channel_name = doorbell_channel_name
-        self.doorbell_response = doorbell_response
+        self.doorbell_responses = doorbell_responses
         self.role_affixes = affixes
     
 
@@ -65,6 +65,7 @@ class HouseRobot(Client):
         # Only allow some members to ring the doorbell.
         author_roles = [role.name for role in message.author.roles]
         if not self.doorbell_role in author_roles:
+            await message.channel.send(self.doorbell_responses['invalidRole'])
             return
 
         # Toggle pin to ring door bell.
@@ -74,7 +75,7 @@ class HouseRobot(Client):
         pin.off()
 
         # Respond to the request to open the door by writing a message in the same channel.
-        await message.channel.send(self.doorbell_response)
+        await message.channel.send(self.doorbell_responses['ok'])
     
 
     async def adjust_badge_roles(self, member: Member):
