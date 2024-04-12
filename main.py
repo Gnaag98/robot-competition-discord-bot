@@ -36,7 +36,9 @@ async def main():
                 doorbell_responses = json.load(json_file)
 
             # XXX: Recreate client since I don't know how to reuse it.
-            client = HouseRobot(GUILD_ID, DOORBELL_PIN, DOORBELL_ROLE, DOORBELL_CHANNEL_NAME, doorbell_responses, ROLE_AFFIXES, intents=intents)
+            client = HouseRobot(GUILD_ID, DOORBELL_PIN, DOORBELL_ROLE,
+                                DOORBELL_CHANNEL_NAME, doorbell_responses,
+                                ROLE_AFFIXES, intents=intents)
             await client.start(DISCORD_TOKEN)
             break
         except ClientConnectorError:
