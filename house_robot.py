@@ -15,10 +15,9 @@ class RoleAffixes:
 class HouseRobot(Client):
     """Custom client."""
 
-    def __init__(self, guild_id: int, doorbell_pin: int, doorbell_role: str, doorbell_channel_name: str, doorbell_responses: dict, affixes: RoleAffixes, *args, **kwargs):
+    def __init__(self, doorbell_pin: int, doorbell_role: str, doorbell_channel_name: str, doorbell_responses: dict, affixes: RoleAffixes, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        self.guild_id = guild_id
         self.doorbell_role = doorbell_role
         self.doorbell_pin = doorbell_pin
         self.doorbell_channel_name = doorbell_channel_name
@@ -29,13 +28,12 @@ class HouseRobot(Client):
     async def on_ready(self):
         print(f'{self.user} has connected to Discord!')
 
-        guild = self.get_guild(self.guild_id)
-
-        print('Adjusting roles...')
-        for member in guild.members:
-            await self.adjust_badge_roles(member)
-        
-        print('Done adjusting roles.')
+        for guild in self.guilds:
+            print('Adjusting roles...')
+            for member in guild.members:
+                await self.adjust_badge_roles(member)
+            
+            print('Done adjusting roles.')
 
 
     async def on_member_update(self, before: Member, after: Member):

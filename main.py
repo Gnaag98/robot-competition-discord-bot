@@ -10,7 +10,6 @@ from house_robot import HouseRobot, RoleAffixes
 
 load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
-GUILD_ID = int(os.getenv('GUILD_ID'))
 
 DOORBELL_PIN = int(os.getenv('DOORBELL_PIN'))
 DOORBELL_ROLE = os.getenv('DOORBELL_ROLE')
@@ -36,7 +35,7 @@ async def main():
                 doorbell_responses = json.load(json_file)
 
             # XXX: Recreate client since I don't know how to reuse it.
-            client = HouseRobot(GUILD_ID, DOORBELL_PIN, DOORBELL_ROLE,
+            client = HouseRobot(DOORBELL_PIN, DOORBELL_ROLE,
                                 DOORBELL_CHANNEL_NAME, doorbell_responses,
                                 ROLE_AFFIXES, intents=intents)
             await client.start(DISCORD_TOKEN)
