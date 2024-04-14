@@ -20,6 +20,10 @@ ROLE_AFFIXES = RoleAffixes(
     badge_prefix=os.getenv('BADGE_ROLE_PREFIX'),
     badge_suffix=os.getenv('BADGE_ROLE_SUFFIX'))
 
+ROBOT_GROUP_ROLE = os.getenv('ROBOT_GROUP_ROLE')
+
+INVITE_CHANNEL_ROBOT_GROUP = os.getenv('INVITE_CHANNEL_ROBOT_GROUP')
+
 intents = Intents.default()
 intents.members = True
 
@@ -37,7 +41,8 @@ async def main():
             # XXX: Recreate client since I don't know how to reuse it.
             client = HouseRobot(DOORBELL_PIN, DOORBELL_ROLE,
                                 DOORBELL_CHANNEL_NAME, doorbell_responses,
-                                ROLE_AFFIXES, intents=intents)
+                                ROLE_AFFIXES, ROBOT_GROUP_ROLE,
+                                INVITE_CHANNEL_ROBOT_GROUP, intents=intents)
             await client.start(DISCORD_TOKEN)
             break
         except ClientConnectorError:

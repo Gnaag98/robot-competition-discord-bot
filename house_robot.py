@@ -1,6 +1,6 @@
 from attr import dataclass
 
-from discord import Client, Member, Message
+from discord import Client, Member, Message, Guild
 from gpiozero import DigitalOutputDevice
 from asyncio import sleep
 
@@ -12,28 +12,78 @@ class RoleAffixes:
     badge_suffix: str
 
 
+async def get_invite_uses(guild: Guild):
+    """Get the number of uses for each invite in the guild."""
+    invite_uses = {}
+    for invite in await guild.invites():
+        invite_uses[invite.code] = invite.uses
+    return invite_uses
+
+
 class HouseRobot(Client):
     """Custom client."""
 
-    def __init__(self, doorbell_pin: int, doorbell_role: str, doorbell_channel_name: str, doorbell_responses: dict, affixes: RoleAffixes, *args, **kwargs):
+    def __init__(self, doorbell_pin: int, doorbell_role: str,
+                 doorbell_channel_name: str, doorbell_responses: dict,
+                 affixes: RoleAffixes, robot_group_role_name: str,
+                 invite_channel_robot_group: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
         self.doorbell_role = doorbell_role
         self.doorbell_pin = doorbell_pin
         self.doorbell_channel_name = doorbell_channel_name
         self.doorbell_responses = doorbell_responses
+
         self.role_affixes = affixes
-    
+
+        self.robot_group_role_name = robot_group_role_name
+
+        self.invite_channel_robot_group = invite_channel_robot_group
+        self.invite_uses = {}
+
 
     async def on_ready(self):
         print(f'{self.user} has connected to Discord!')
 
         for guild in self.guilds:
+            print('Storing invite uses...')
+            self.invite_uses[guild.id] = await get_invite_uses(guild)
+            print('Done storing invite uses.')
+
             print('Adjusting roles...')
             for member in guild.members:
                 await self.adjust_badge_roles(member)
-            
             print('Done adjusting roles.')
+
+
+    async def on_member_join(self, member: Member):
+        print(f'{member.name} joined the server.')
+
+        guild = member.guild
+
+        try:
+            robot_group_role = next(
+                role for role in guild.roles
+                if role.name == self.robot_group_role_name)
+        except StopIteration:
+            raise RuntimeError(f'Role {self.robot_group_role_name} not found.')
+
+        for invite in await guild.invites():
+            invite_uses_before = self.invite_uses[guild.id].get(invite.code, 0)
+
+            if invite.uses > invite_uses_before:
+                print(f'{member.name} joined using invite {invite.code}')
+
+                # Check if the invite was for joining the robot group.
+                if invite.channel.name == self.invite_channel_robot_group:
+                    await member.add_roles(robot_group_role)
+
+                    print(f'{member.name} assigned the role {self.invite_channel_robot_group}.')
+                    await self.adjust_badge_roles(member)
+                break
+        
+        # Update the invite uses for the next member join event.
+        self.invite_uses[guild.id] = await get_invite_uses(guild)
 
 
     async def on_member_update(self, before: Member, after: Member):
