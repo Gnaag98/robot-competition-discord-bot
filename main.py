@@ -22,6 +22,8 @@ ROLE_AFFIXES = RoleAffixes(
 
 ROBOT_GROUP_ROLE = os.getenv('ROBOT_GROUP_ROLE')
 
+STATUS_CHANNEL = os.getenv('STATUS_CHANNEL')
+
 INVITE_CHANNEL_ROBOT_GROUP = os.getenv('INVITE_CHANNEL_ROBOT_GROUP')
 
 intents = Intents.default()
@@ -41,7 +43,7 @@ async def main():
             # XXX: Recreate client since I don't know how to reuse it.
             client = HouseRobot(DOORBELL_PIN, DOORBELL_ROLE,
                                 DOORBELL_CHANNEL_NAME, doorbell_responses,
-                                ROLE_AFFIXES, ROBOT_GROUP_ROLE,
+                                ROLE_AFFIXES, ROBOT_GROUP_ROLE, STATUS_CHANNEL,
                                 INVITE_CHANNEL_ROBOT_GROUP, intents=intents)
             await client.start(DISCORD_TOKEN)
             break
