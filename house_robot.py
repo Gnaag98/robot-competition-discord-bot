@@ -1,6 +1,6 @@
 from attr import dataclass
 
-from discord import Client, Member, Message, Guild, TextChannel
+from discord import app_commands, Client, Guild, Interaction, Member, Message, TextChannel
 from gpiozero import DigitalOutputDevice
 from asyncio import sleep
 
@@ -35,7 +35,7 @@ class HouseRobot(Client):
                  status_channel_name: str, invite_channel_robot_group: str,
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         self.doorbell_role = doorbell_role
         self.doorbell_pin = doorbell_pin
         self.doorbell_channel_name = doorbell_channel_name
@@ -50,6 +50,9 @@ class HouseRobot(Client):
 
         self.invite_channel_robot_group = invite_channel_robot_group
         self.invite_uses = {}
+
+        self.tree = app_commands.CommandTree(self)
+
 
     async def on_ready(self):
         print(f'{self.user} has connected to Discord!')
@@ -73,6 +76,32 @@ class HouseRobot(Client):
             for member in guild.members:
                 await self.adjust_badge_roles(member)
             await log(status_channel, 'Done adjusting roles.')
+
+        @self.tree.command(guilds=self.guilds)
+        @app_commands.checks.has_permissions(administrator=True)
+        async def setup_channels(interaction: Interaction, year: int):
+            """Setup the category with public channels for the robot competition
+            at the specified year. Do nothing if the category already exists.
+            """
+
+            category_name = f'Robottävlingen {year}'
+
+            if any(category.name == category_name
+                   for category
+                   in interaction.guild.categories):
+                await interaction.response.send_message(f'Will not create the category {category_name} since it already exists.')
+                return
+
+            await interaction.response.send_message('Not implemented yet.')
+
+            # Test create categories and channels.
+            """ category = await guild.create_category('test-category', position=0)
+            channel = await guild.create_text_channel('test-channel', category=next(
+                category for category in guild.categories
+                if category.name == 'test-category')) """
+
+        await self.sync_commands()
+
 
     async def on_member_join(self, member: Member):
         guild = member.guild
@@ -184,3 +213,13 @@ class HouseRobot(Client):
         if roles_to_remove:
             await log(status_channel, f'Removing roles {", ".join(role.name for role in roles_to_remove)} from {member.name}')
             await member.remove_roles(*roles_to_remove)
+
+
+    async def sync_commands(self):
+        """Sync commands with the guilds."""
+        for guild in self.guilds:
+            status_channel = self.status_channel[guild.id]
+
+            await log(status_channel, 'Syncing commands...')
+            await self.tree.sync(guild=guild)
+            await log(status_channel, 'Done syncing commands.')

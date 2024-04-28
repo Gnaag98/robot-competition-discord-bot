@@ -28,6 +28,7 @@ INVITE_CHANNEL_ROBOT_GROUP = os.getenv('INVITE_CHANNEL_ROBOT_GROUP')
 
 intents = Intents.default()
 intents.members = True
+intents.message_content = True
 
 utils.setup_logging(root=False)
 
