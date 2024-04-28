@@ -63,22 +63,22 @@ class HouseRobot(Client):
                 raise RuntimeError(f'Channel {self.status_channel_name} not found.')
             status_channel = self.status_channel[guild.id]
 
-            log(status_channel, "I'm online!")
+            await log(status_channel, "I'm online!")
 
-            log(status_channel, 'Storing invite uses...')
+            await log(status_channel, 'Storing invite uses...')
             self.invite_uses[guild.id] = await get_invite_uses(guild)
-            log(status_channel, 'Done storing invite uses.')
+            await log(status_channel, 'Done storing invite uses.')
 
-            log(status_channel, 'Adjusting roles...')
+            await log(status_channel, 'Adjusting roles...')
             for member in guild.members:
                 await self.adjust_badge_roles(member)
-            log(status_channel, 'Done adjusting roles.')
+            await log(status_channel, 'Done adjusting roles.')
 
     async def on_member_join(self, member: Member):
         guild = member.guild
         status_channel = self.status_channel[guild.id]
 
-        log(status_channel, f'{member.name} joined the server.')
+        await log(status_channel, f'{member.name} joined the server.')
 
         try:
             robot_group_role = next(
@@ -91,13 +91,13 @@ class HouseRobot(Client):
             invite_uses_before = self.invite_uses[guild.id].get(invite.code, 0)
 
             if invite.uses > invite_uses_before:
-                log(status_channel, f'{member.name} joined using invite {invite.code}')
+                await log(status_channel, f'{member.name} joined using invite {invite.code}')
 
                 # Check if the invite was for joining the robot group.
                 if invite.channel.name == self.invite_channel_robot_group:
                     await member.add_roles(robot_group_role)
 
-                    log(status_channel, f'{member.name} assigned the role {self.invite_channel_robot_group}.')
+                    await log(status_channel, f'{member.name} assigned the role {self.invite_channel_robot_group}.')
                     await self.adjust_badge_roles(member)
                 break
         
@@ -179,8 +179,8 @@ class HouseRobot(Client):
 
         # Add and remove roles as necessary.
         if correct_badge_role and not correct_badge_role in current_badge_roles:
-            self.log(status_channel, f'Adding role {correct_badge_role.name} to {member.name}')
+            await log(status_channel, f'Adding role {correct_badge_role.name} to {member.name}')
             await member.add_roles(correct_badge_role)
         if roles_to_remove:
-            self.log(status_channel, f'Removing roles {", ".join(role.name for role in roles_to_remove)} from {member.name}')
+            await log(status_channel, f'Removing roles {", ".join(role.name for role in roles_to_remove)} from {member.name}')
             await member.remove_roles(*roles_to_remove)
