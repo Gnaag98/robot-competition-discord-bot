@@ -1,0 +1,18 @@
+{
+    "category": {
+        "roles": [
+            "Robotgruppen",
+            "3D-skrivarcertifierad"
+        ]
+},
+    "channels": [
+        {
+            "name": "👋välkommen",
+            "topic": "Välkommen! Välj ditt lag så får du tillgång till resterande kanaler.\n\nWelcome! Select your team and you will have access to the remaining channels."
+        },
+        {
+            "name": "📢info",
+            "topic": "Här finner ni viktig information såsom datum och regler.\n\nHere you will find important information like dates and rules."
+        }
+    ]
+}

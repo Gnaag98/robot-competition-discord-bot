@@ -1,6 +1,8 @@
 from attr import dataclass
+import json
 
-from discord import app_commands, Client, Guild, Interaction, Member, Message, TextChannel
+from discord import app_commands, Client, Guild, Interaction, Member, Message, \
+    PermissionOverwrite, TextChannel
 from gpiozero import DigitalOutputDevice
 from asyncio import sleep
 
@@ -78,27 +80,116 @@ class HouseRobot(Client):
             await log(status_channel, 'Done adjusting roles.')
 
         @self.tree.command(guilds=self.guilds)
+        @app_commands.describe(year='The year of the competition.')
         @app_commands.checks.has_permissions(administrator=True)
         async def setup_channels(interaction: Interaction, year: int):
             """Setup the category with public channels for the robot competition
             at the specified year. Do nothing if the category already exists.
             """
+            
+            guild = interaction.guild
+            status_channel = self.status_channel[guild.id]
+            setup_filename = 'category_setup.json'
+            new_role_name = f'Tävlande {year}'
+            previous_role_name = f'Tävlande {year - 1}'
+            new_category_name = f'Robottävlingen {year}'
+            previous_category_name = f'Robottävlingen {year - 1}'
 
-            category_name = f'Robottävlingen {year}'
+            await log(status_channel, f'Setting up public channels for the Robot Competition {year}...')
 
-            if any(category.name == category_name
-                   for category
-                   in interaction.guild.categories):
-                await interaction.response.send_message(f'Will not create the category {category_name} since it already exists.')
+            # Parse the settings file.
+            try:
+                with open(setup_filename, encoding='utf-8') as json_file:
+                    setup_json = json.load(json_file)
+                    category_json = setup_json['category']
+                    channels_json = setup_json['channels']
+
+                    category_roles = []
+                    for role_name in category_json['roles']:
+                        # Get the role with this name:
+                        role = next(
+                            (role for role in guild.roles
+                             if role.name == role_name),
+                            None)
+                        if role:
+                            category_roles.append(role)
+                        else:
+                            message = f'Aborted: Could not find the role {role_name}.'
+                            await log(status_channel, message)
+                            await interaction.response.send_message(message)
+                            return
+
+            except FileNotFoundError:
+                message = f'Aborted: Could not find the file {setup_filename}.'
+                await log(status_channel, message)
+                await interaction.response.send_message(message)
                 return
+            except KeyError:
+                message = f'Aborted: The file {setup_filename} is missing required keys.'
+                await log(status_channel, message)
+                await interaction.response.send_message(message)
+                return
+            
+            # Abort if the category already exist.
+            if any(category.name == new_category_name for category
+                   in interaction.guild.categories):
+                message = f'Aborted: The category {new_category_name} already exists.'
+                await log(status_channel, message)
+                await interaction.response.send_message(message)
+                return
+            
+            await interaction.response.send_message('Creating channels...')
 
-            await interaction.response.send_message('Not implemented yet.')
+            # Create the competitor role if it doesn't exist.
+            new_role = next(
+                (role for role in guild.roles if role.name == new_role_name),
+                None)
+            if new_role:
+                await log(status_channel, f'Role {new_role_name} already exists.')
+            else:
+                new_role = await guild.create_role(name=new_role_name)
+                await log(status_channel, f'Created role {new_role_name}.')
+            category_roles.append(new_role)
 
-            # Test create categories and channels.
-            """ category = await guild.create_category('test-category', position=0)
-            channel = await guild.create_text_channel('test-channel', category=next(
-                category for category in guild.categories
-                if category.name == 'test-category')) """
+            # If there are roles from previous years, make sure the new role is
+            # directly below the previous role.
+            previous_role = next(
+                (role for role in guild.roles
+                 if role.name == previous_role_name),
+                None)
+            if previous_role:
+                await new_role.edit(position=previous_role.position - 1)
+                await log(status_channel, f'Role {new_role_name} moved below {previous_role_name}.')
+
+            # Create overwrites for the category to make it private.
+            overwrites = {
+                role: PermissionOverwrite(read_messages=True, connect=True)
+                for role in category_roles
+            }
+            overwrites[guild.default_role] = PermissionOverwrite(
+                read_messages=False)
+
+            # Create the category at the top by default.
+            category = await guild.create_category(new_category_name,
+                                                   overwrites=overwrites,
+                                                   position=0)
+            await log(status_channel, f'Created category {new_category_name}.')
+
+            # If there are categories from previous years, make sure the new
+            # category is directly above the previous category.
+            previous_category = next(
+                (category for category in guild.categories
+                 if category.name == previous_category_name),
+                None)
+            if previous_category:
+                await category.move(before=previous_category)
+                await log(status_channel, f'Category {new_category_name} moved above {previous_category_name}.')
+
+            for channel in channels_json:
+                await guild.create_text_channel(
+                    name=channel['name'],
+                    topic=channel['topic'],
+                    category=category)
 
         await self.sync_commands()
 
