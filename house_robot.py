@@ -32,26 +32,18 @@ async def log(channel: TextChannel, message: str):
 class HouseRobot(Client):
     """Custom client."""
 
-    def __init__(self, doorbell_pin: int, doorbell_role: str,
-                 doorbell_channel_name: str, doorbell_responses: dict,
-                 affixes: RoleAffixes, robot_group_role_name: str,
-                 status_channel_name: str, invite_channel_robot_group: str,
+    def __init__(self, settings: dict, doorbell_responses: dict,
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.doorbell_role = doorbell_role
-        self.doorbell_pin = doorbell_pin
-        self.doorbell_channel_name = doorbell_channel_name
+        self.settings = settings
         self.doorbell_responses = doorbell_responses
 
-        self.role_affixes = affixes
-
-        self.robot_group_role_name = robot_group_role_name
-
-        self.status_channel_name = status_channel_name
+        self.role_affixes = RoleAffixes(
+            settings['seniority_badge']['year_role_prefix'],
+            settings['seniority_badge']['badge_role_prefix'],
+            settings['seniority_badge']['badge_role_suffix'])
         self.status_channel = {}
-
-        self.invite_channel_robot_group = invite_channel_robot_group
         self.invite_uses = {}
 
         self.tree = app_commands.CommandTree(self)
@@ -64,9 +56,9 @@ class HouseRobot(Client):
             try:
                 self.status_channel[guild.id] = next(
                     channel for channel in guild.channels
-                    if channel.name == self.status_channel_name)
+                    if channel.name == self.settings['debug']['status_channel'])
             except StopIteration:
-                raise RuntimeError(f'Channel {self.status_channel_name} not found.')
+                raise RuntimeError(f"Status channel {self.settings['debug']['status_channel']} not found.")
             status_channel = self.status_channel[guild.id]
 
             await log(status_channel, "I'm online!")
@@ -87,7 +79,7 @@ class HouseRobot(Client):
             """Setup the category with public channels for the robot competition
             at the specified year. Do nothing if the category already exists.
             """
-            
+
             guild = interaction.guild
             status_channel = self.status_channel[guild.id]
             setup_filename = 'category_setup.json'
@@ -130,7 +122,7 @@ class HouseRobot(Client):
                 await log(status_channel, message)
                 await interaction.response.send_message(message)
                 return
-            
+
             # Abort if the category already exist.
             if any(category.name == new_category_name for category
                    in interaction.guild.categories):
@@ -138,7 +130,7 @@ class HouseRobot(Client):
                 await log(status_channel, message)
                 await interaction.response.send_message(message)
                 return
-            
+
             await interaction.response.send_message('Creating channels...')
 
             # Create the competitor role if it doesn't exist.
@@ -204,9 +196,9 @@ class HouseRobot(Client):
         try:
             robot_group_role = next(
                 role for role in guild.roles
-                if role.name == self.robot_group_role_name)
+                if role.name == self.settings['robot_group']['role'])
         except StopIteration:
-            raise RuntimeError(f'Role {self.robot_group_role_name} not found.')
+            raise RuntimeError(f"Robot group role {self.settings['robot_group']['role']} not found.")
 
         for invite in await guild.invites():
             invite_uses_before = self.invite_uses[guild.id].get(invite.code, 0)
@@ -215,13 +207,13 @@ class HouseRobot(Client):
                 await log(status_channel, f'{member.name} joined using invite {invite.code}')
 
                 # Check if the invite was for joining the robot group.
-                if invite.channel.name == self.invite_channel_robot_group:
+                if invite.channel.name == self['invites']['destination_channels']['robot_group']:
                     await member.add_roles(robot_group_role)
 
-                    await log(status_channel, f'{member.name} assigned the role {self.invite_channel_robot_group}.')
+                    await log(status_channel, f'{member.name} assigned the role "{invite.channel.name}".')
                     await self.adjust_badge_roles(member)
                 break
-        
+
         # Update the invite uses for the next member join event.
         self.invite_uses[guild.id] = await get_invite_uses(guild)
 
@@ -233,7 +225,7 @@ class HouseRobot(Client):
             year_roles_after = [
                 role for role in after.roles
                 if role.name.startswith(self.role_affixes.year_prefix)]
-            
+
             # Check if the list contains the same roles. This works because the
             # roles appear in the same order.
             if year_roles_before != year_roles_after:
@@ -241,16 +233,16 @@ class HouseRobot(Client):
 
     async def on_message(self, message: Message):
         # Ignore messages from other channels.
-        if message.channel.name != self.doorbell_channel_name:
+        if message.channel.name != self.settings['doorbell']['channel']:
             return
-        
+
         # Ignore messages from bots. Prevents infinite loops.
         if message.author.bot:
             return
 
         # Only allow some members to ring the doorbell.
         author_roles = [role.name for role in message.author.roles]
-        if not self.doorbell_role in author_roles:
+        if not self.settings['doorbell']['allowed_user_role'] in author_roles:
             await message.channel.send(self.doorbell_responses['invalidRole'])
             return
 
@@ -260,7 +252,7 @@ class HouseRobot(Client):
             await message.channel.send(text)
         else:
             # Toggle pin to ring door bell.
-            pin = DigitalOutputDevice(self.doorbell_pin)
+            pin = DigitalOutputDevice(self.settings['doorbell']['pin'])
             pin.on()
             await sleep(0.5)
             pin.off()
@@ -268,7 +260,7 @@ class HouseRobot(Client):
             # Respond to the request to open the door by writing a message in the
             # same channel.
             await message.channel.send(self.doorbell_responses['ok'])
-    
+
     async def adjust_badge_roles(self, member: Member):
         status_channel = self.status_channel[member.guild.id]
 
@@ -284,7 +276,7 @@ class HouseRobot(Client):
             None,
             *badge_roles
         )
-        
+
         current_year_roles = [
             role for role in member.roles
             if role.name.startswith(self.role_affixes.year_prefix)]

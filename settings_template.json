@@ -1,0 +1,24 @@
+{
+    "discord_token": "",
+    "debug": {
+        "status_channel": ""
+    },
+    "robot_group": {
+        "role": ""
+    },
+    "invites": {
+        "destination_channels": {
+            "robot_group": ""
+        }
+    },
+    "doorbell": {
+        "pin": -1,
+        "allowed_user_role": "",
+        "channel": ""
+    },
+    "seniority_badge": {
+        "year_role_prefix": "",
+        "badge_role_prefix": "",
+        "badge_role_suffix": ""
+    }
+}

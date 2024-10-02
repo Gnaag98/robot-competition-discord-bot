@@ -1,5 +1,6 @@
 __pycache__/
 .venv/
 .env
+settings.json
 responses.json
 log.txt

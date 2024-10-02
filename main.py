@@ -1,30 +1,10 @@
 import json
-import os
 
 import asyncio
 from aiohttp import ClientConnectorError
 from discord import Intents, utils
-from dotenv import load_dotenv
 
-from house_robot import HouseRobot, RoleAffixes
-
-load_dotenv()
-DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
-
-DOORBELL_PIN = int(os.getenv('DOORBELL_PIN'))
-DOORBELL_ROLE = os.getenv('DOORBELL_ROLE')
-DOORBELL_CHANNEL_NAME = os.getenv('DOORBELL_CHANNEL_NAME')
-
-ROLE_AFFIXES = RoleAffixes(
-    year_prefix=os.getenv('YEAR_ROLE_PREFIX'),
-    badge_prefix=os.getenv('BADGE_ROLE_PREFIX'),
-    badge_suffix=os.getenv('BADGE_ROLE_SUFFIX'))
-
-ROBOT_GROUP_ROLE = os.getenv('ROBOT_GROUP_ROLE')
-
-STATUS_CHANNEL = os.getenv('STATUS_CHANNEL')
-
-INVITE_CHANNEL_ROBOT_GROUP = os.getenv('INVITE_CHANNEL_ROBOT_GROUP')
+from house_robot import HouseRobot
 
 intents = Intents.default()
 intents.members = True
@@ -38,15 +18,15 @@ async def main():
 
     while True:
         try:
+            with open('settings.json', encoding='utf-8') as json_file:
+                settings = json.load(json_file)
             with open('responses.json', encoding='utf-8') as json_file:
                 doorbell_responses = json.load(json_file)
 
             # XXX: Recreate client since I don't know how to reuse it.
-            client = HouseRobot(DOORBELL_PIN, DOORBELL_ROLE,
-                                DOORBELL_CHANNEL_NAME, doorbell_responses,
-                                ROLE_AFFIXES, ROBOT_GROUP_ROLE, STATUS_CHANNEL,
-                                INVITE_CHANNEL_ROBOT_GROUP, intents=intents)
-            await client.start(DISCORD_TOKEN)
+            client = HouseRobot(intents=intents, settings=settings,
+                                doorbell_responses=doorbell_responses)
+            await client.start(settings['discord_token'])
             break
         except ClientConnectorError:
             print('Connection failed.')
