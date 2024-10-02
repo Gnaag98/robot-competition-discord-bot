@@ -3,12 +3,10 @@
     "debug": {
         "status_channel": ""
     },
-    "robot_group": {
-        "role": ""
-    },
     "invites": {
-        "destination_channels": {
-            "robot_group": ""
+        "robot_group": {
+            "channel": "",
+            "role": ""
         }
     },
     "doorbell": {

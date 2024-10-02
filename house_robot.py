@@ -1,32 +1,12 @@
-from dataclasses import dataclass
 import json
 
-from discord import app_commands, Client, Guild, Interaction, Member, Message, \
-    PermissionOverwrite, TextChannel
-if not __debug__:
-    from gpiozero import DigitalOutputDevice
-from asyncio import sleep
+from discord import app_commands, Client, Interaction, Member, Message, \
+    PermissionOverwrite
 
-@dataclass
-class RoleAffixes:
-    """Prefixes and suffixes for the roles."""
-    year_prefix: str
-    badge_prefix: str
-    badge_suffix: str
-
-
-async def get_invite_uses(guild: Guild):
-    """Get the number of uses for each invite in the guild."""
-    invite_uses = {}
-    for invite in await guild.invites():
-        invite_uses[invite.code] = invite.uses
-    return invite_uses
-
-
-async def log(channel: TextChannel, message: str):
-        """Log a message to a channel and print it to the console."""
-        await channel.send(message)
-        print(message)
+from doorbell import check_doorbell
+from invites import apply_invite_role, get_invite_uses
+from bot_logging import log
+from seniority_badge import RoleAffixes, adjust_badge_roles
 
 
 class HouseRobot(Client):
@@ -53,6 +33,7 @@ class HouseRobot(Client):
         print(f'{self.user} has connected to Discord!')
 
         for guild in self.guilds:
+            # Get channel used to log status messages.
             try:
                 self.status_channel[guild.id] = next(
                     channel for channel in guild.channels
@@ -69,7 +50,7 @@ class HouseRobot(Client):
 
             await log(status_channel, 'Adjusting roles...')
             for member in guild.members:
-                await self.adjust_badge_roles(member)
+                await adjust_badge_roles(member, self.role_affixes, status_channel)
             await log(status_channel, 'Done adjusting roles.')
 
         @self.tree.command(guilds=self.guilds)
@@ -186,6 +167,8 @@ class HouseRobot(Client):
 
         await self.sync_commands()
 
+        await log(status_channel, "I'm ready!")
+
 
     async def on_member_join(self, member: Member):
         guild = member.guild
@@ -193,115 +176,40 @@ class HouseRobot(Client):
 
         await log(status_channel, f'{member.name} joined the server.')
 
-        try:
-            robot_group_role = next(
-                role for role in guild.roles
-                if role.name == self.settings['robot_group']['role'])
-        except StopIteration:
-            raise RuntimeError(f"Robot group role {self.settings['robot_group']['role']} not found.")
-
         for invite in await guild.invites():
             invite_uses_before = self.invite_uses[guild.id].get(invite.code, 0)
 
+            # Check if the user joined via this invite.
             if invite.uses > invite_uses_before:
                 await log(status_channel, f'{member.name} joined using invite {invite.code}')
-
-                # Check if the invite was for joining the robot group.
-                if invite.channel.name == self['invites']['destination_channels']['robot_group']:
-                    await member.add_roles(robot_group_role)
-
-                    await log(status_channel, f'{member.name} assigned the role "{invite.channel.name}".')
-                    await self.adjust_badge_roles(member)
+                await apply_invite_role(member=member, invite=invite,
+                                  invite_settings=self.settings['invites'],
+                                  status_channel=status_channel)
+                # Make sure new competitors get a seniority badge.
+                await adjust_badge_roles(member, self.role_affixes, status_channel)
+                # The invite was found. No need to check the rest.
                 break
 
         # Update the invite uses for the next member join event.
         self.invite_uses[guild.id] = await get_invite_uses(guild)
 
-    async def on_member_update(self, before: Member, after: Member):
-        if before.roles != after.roles:
-            year_roles_before = [
-                role for role in before.roles
-                if role.name.startswith(self.role_affixes.year_prefix)]
-            year_roles_after = [
-                role for role in after.roles
-                if role.name.startswith(self.role_affixes.year_prefix)]
 
-            # Check if the list contains the same roles. This works because the
-            # roles appear in the same order.
-            if year_roles_before != year_roles_after:
-                await self.adjust_badge_roles(after)
+    async def on_member_update(self, member_before: Member, member_after: Member):
+        guild = member_after.guild
+        status_channel = self.status_channel[guild.id]
+
+        if member_before.roles != member_after.roles:
+            # It is possible the seniority badge need to be updated.
+            await adjust_badge_roles(member_after, self.role_affixes, status_channel)
+
 
     async def on_message(self, message: Message):
-        # Ignore messages from other channels.
-        if message.channel.name != self.settings['doorbell']['channel']:
-            return
-
         # Ignore messages from bots. Prevents infinite loops.
         if message.author.bot:
             return
-
-        # Only allow some members to ring the doorbell.
-        author_roles = [role.name for role in message.author.roles]
-        if not self.settings['doorbell']['allowed_user_role'] in author_roles:
-            await message.channel.send(self.doorbell_responses['invalidRole'])
-            return
-
-        if __debug__:
-            text = 'Doorbell disabled in debug mode.'
-            print(text)
-            await message.channel.send(text)
-        else:
-            # Toggle pin to ring door bell.
-            pin = DigitalOutputDevice(self.settings['doorbell']['pin'])
-            pin.on()
-            await sleep(0.5)
-            pin.off()
-
-            # Respond to the request to open the door by writing a message in the
-            # same channel.
-            await message.channel.send(self.doorbell_responses['ok'])
-
-    async def adjust_badge_roles(self, member: Member):
-        status_channel = self.status_channel[member.guild.id]
-
-        badge_roles = [
-            role for role in member.guild.roles
-            if role.name.startswith(self.role_affixes.badge_prefix)
-            and role.name.endswith(self.role_affixes.badge_suffix)]
-
-        # Add None to the list of badge roles so that the index correspond to
-        # the number of years participated. This works because the roles are
-        # retrieved from lowest role to highest.
-        badge_roles = (
-            None,
-            *badge_roles
-        )
-
-        current_year_roles = [
-            role for role in member.roles
-            if role.name.startswith(self.role_affixes.year_prefix)]
-
-        # Clamp the badge index to the valid range [0, len(badge_roles))
-        badge_role_index = min(len(current_year_roles), len(badge_roles))
-
-        # Choose the correct role based on the number of years participated.
-        correct_badge_role = badge_roles[badge_role_index]
-
-        current_badge_roles = [
-            role for role in member.roles
-            if role.name.startswith(self.role_affixes.badge_prefix)]
-
-        roles_to_remove = [
-            role for role in current_badge_roles
-            if role and role != correct_badge_role]
-
-        # Add and remove roles as necessary.
-        if correct_badge_role and not correct_badge_role in current_badge_roles:
-            await log(status_channel, f'Adding role {correct_badge_role.name} to {member.name}')
-            await member.add_roles(correct_badge_role)
-        if roles_to_remove:
-            await log(status_channel, f'Removing roles {", ".join(role.name for role in roles_to_remove)} from {member.name}')
-            await member.remove_roles(*roles_to_remove)
+        
+        await check_doorbell(message=message, doorbell_settings=self.settings['doorbell'],
+                       doorbell_responses=self.doorbell_responses)
 
 
     async def sync_commands(self):
