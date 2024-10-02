@@ -1,9 +1,10 @@
-from attr import dataclass
+from dataclasses import dataclass
 import json
 
 from discord import app_commands, Client, Guild, Interaction, Member, Message, \
     PermissionOverwrite, TextChannel
-from gpiozero import DigitalOutputDevice
+if not __debug__:
+    from gpiozero import DigitalOutputDevice
 from asyncio import sleep
 
 @dataclass
@@ -253,15 +254,20 @@ class HouseRobot(Client):
             await message.channel.send(self.doorbell_responses['invalidRole'])
             return
 
-        # Toggle pin to ring door bell.
-        pin = DigitalOutputDevice(self.doorbell_pin)
-        pin.on()
-        await sleep(0.5)
-        pin.off()
+        if __debug__:
+            text = 'Doorbell disabled in debug mode.'
+            print(text)
+            await message.channel.send(text)
+        else:
+            # Toggle pin to ring door bell.
+            pin = DigitalOutputDevice(self.doorbell_pin)
+            pin.on()
+            await sleep(0.5)
+            pin.off()
 
-        # Respond to the request to open the door by writing a message in the
-        # same channel.
-        await message.channel.send(self.doorbell_responses['ok'])
+            # Respond to the request to open the door by writing a message in the
+            # same channel.
+            await message.channel.send(self.doorbell_responses['ok'])
     
     async def adjust_badge_roles(self, member: Member):
         status_channel = self.status_channel[member.guild.id]
