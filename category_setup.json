@@ -53,19 +53,12 @@
             "topic": "Här kan ni utan tillgång till universitetets lokaler skvia för att be någon släppa in er. En ringklocka kommer även att låta i 3D-labbet.\n\nHere you without access to the university premises can write to ask someone to let you in. A bell will also ring in the 3D-lab.",
             "permissions": [
                 {
-                    "role": "Gymnasie",
+                    "role": "Tävlande20XX",
                     "add": [
                         "view_channel",
                         "send_messages"
                     ],
                     "remove": []
-                },
-                {
-                    "role": "Tävlande20XX",
-                    "add": [],
-                    "remove": [
-                        "view_channel"
-                    ]
                 }
             ]
         },
