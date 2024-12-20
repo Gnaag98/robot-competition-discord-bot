@@ -2,4 +2,4 @@ discord.py
 python-dotenv
 
 gpiozero
-RPi.GPIO
+rpi-lgpio
