@@ -71,28 +71,51 @@ class HouseRobot(Client):
 
             await log(status_channel, f'Setting up public channels for the Robot Competition {year}...')
 
-            # Parse the settings file.
+            # Get the robot group role.
+            robot_group_role = next(
+                (role for role in guild.roles
+                    if role.name == 'Robotgruppen'),
+                None)
+            if not robot_group_role:
+                message = f'Aborted: Could not find the Robot group role.'
+                await log(status_channel, message)
+                await interaction.response.send_message(message)
+                return
+
+            # Create the competitor role if it doesn't exist.
+            competitors_role = next(
+                (role for role in guild.roles if role.name == new_role_name),
+                None)
+            if competitors_role:
+                await log(status_channel, f'Role {new_role_name} already exists.')
+            else:
+                competitors_role = await guild.create_role(name=new_role_name)
+                await log(status_channel, f'Created role {new_role_name}.')
+            # If there are roles from previous years, make sure the new role is
+            # directly below the previous role.
+            previous_role = next(
+                (role for role in guild.roles
+                 if role.name == previous_role_name),
+                None)
+            if previous_role:
+                await competitors_role.edit(position=previous_role.position - 1)
+                await log(status_channel, f'Role {new_role_name} moved below {previous_role_name}.')
+
+            # Create overwrites for the category that can be synched with its channels.
+            category_overwrites = {
+                robot_group_role: PermissionOverwrite(
+                    view_channel=True, connect=True, send_messages=True, speak=True),
+                competitors_role: PermissionOverwrite(
+                    view_channel=True, connect=True),
+                guild.default_role: PermissionOverwrite(
+                    view_channel=False, connect=False, send_messages=False, speak=False)
+            }
+
+            # Parse the settings file into a dict.
             try:
                 with open(setup_filename, encoding='utf-8') as json_file:
                     setup_json = json.load(json_file)
-                    category_json = setup_json['category']
                     channels_json = setup_json['channels']
-
-                    category_roles = []
-                    for role_name in category_json['roles']:
-                        # Get the role with this name:
-                        role = next(
-                            (role for role in guild.roles
-                             if role.name == role_name),
-                            None)
-                        if role:
-                            category_roles.append(role)
-                        else:
-                            message = f'Aborted: Could not find the role {role_name}.'
-                            await log(status_channel, message)
-                            await interaction.response.send_message(message)
-                            return
-
             except FileNotFoundError:
                 message = f'Aborted: Could not find the file {setup_filename}.'
                 await log(status_channel, message)
@@ -111,44 +134,12 @@ class HouseRobot(Client):
                 await log(status_channel, message)
                 await interaction.response.send_message(message)
                 return
-
-            await interaction.response.send_message('Creating channels...')
-
-            # Create the competitor role if it doesn't exist.
-            new_role = next(
-                (role for role in guild.roles if role.name == new_role_name),
-                None)
-            if new_role:
-                await log(status_channel, f'Role {new_role_name} already exists.')
-            else:
-                new_role = await guild.create_role(name=new_role_name)
-                await log(status_channel, f'Created role {new_role_name}.')
-            category_roles.append(new_role)
-
-            # If there are roles from previous years, make sure the new role is
-            # directly below the previous role.
-            previous_role = next(
-                (role for role in guild.roles
-                 if role.name == previous_role_name),
-                None)
-            if previous_role:
-                await new_role.edit(position=previous_role.position - 1)
-                await log(status_channel, f'Role {new_role_name} moved below {previous_role_name}.')
-
-            # Create overwrites for the category to make it private.
-            overwrites = {
-                role: PermissionOverwrite(read_messages=True, connect=True)
-                for role in category_roles
-            }
-            overwrites[guild.default_role] = PermissionOverwrite(
-                read_messages=False)
-
             # Create the category at the top by default.
+            await interaction.response.send_message('Creating channels...')
             category = await guild.create_category(new_category_name,
-                                                   overwrites=overwrites,
-                                                   position=0)
-            await log(status_channel, f'Created category {new_category_name}.')
+                                                   overwrites=category_overwrites)
 
+            await log(status_channel, f'Created category {new_category_name}.')
             # If there are categories from previous years, make sure the new
             # category is directly above the previous category.
             previous_category = next(
@@ -159,11 +150,58 @@ class HouseRobot(Client):
                 await category.move(before=previous_category)
                 await log(status_channel, f'Category {new_category_name} moved above {previous_category_name}.')
 
-            for channel in channels_json:
+            # Add channels to category.
+            for channel_json in channels_json:
+                channel_name: str = channel_json['name']
+                channel_topic: str = channel_json['topic']
+                channel_overwrites = {}
+                # Only adjust overwrites if there are any permissions to add or remove.
+                if 'permissions' in channel_json and channel_json['permissions']:
+                    # Perform deep copy of overwrites.
+                    for role, overwrite in category_overwrites.items():
+                        channel_overwrites[role] = PermissionOverwrite.from_pair(*overwrite.pair())
+                for channel_permission_json in channel_json['permissions']:
+                    role_name = channel_permission_json['role']
+                    if role_name == '@everyone':
+                        role = guild.default_role
+                    elif role_name == 'Tävlande20XX':
+                        role = competitors_role
+                    else:
+                        role = next(
+                            (role for role in guild.roles
+                            if role.name == role_name),
+                            None)
+                        if not role:
+                            message = f'Aborted: Could not find the role {role_name}.'
+                            await log(status_channel, message)
+                            await interaction.response.send_message(message)
+                            return
+                    
+                    add_kwargs = {attribute: True for attribute in channel_permission_json['add']}
+                    remove_kwargs = {attribute: False for attribute in channel_permission_json['remove']}
+                    if not role in channel_overwrites:
+                        channel_overwrites[role] = PermissionOverwrite()
+                    channel_overwrites[role].update(**add_kwargs, **remove_kwargs)
+                await guild.create_text_channel(
+                    name=channel_name,
+                    topic=channel_topic,
+                    overwrites=channel_overwrites,
+                    category=category)
+            """ try:
+                public_readonly_channels_json = channels_json['public_readonly']
+                competitors_readonly_channels_json = channels_json['competitors_readonly']
+                competitors_channels_json = channels_json['competitors']
+                private_channels_json = channels_json['private']
+            except KeyError:
+                message = f'Aborted: The file {setup_filename} is missing required keys for the channels.'
+                await log(status_channel, message)
+                await interaction.response.send_message(message)
+                return
+            for channel in public_readonly_channels_json:
                 await guild.create_text_channel(
                     name=channel['name'],
                     topic=channel['topic'],
-                    category=category)
+                    category=category) """
 
         await self.sync_commands()
 

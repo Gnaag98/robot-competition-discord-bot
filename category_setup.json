@@ -1,18 +1,107 @@
 {
-    "category": {
-        "roles": [
-            "Robotgruppen",
-            "3D-skrivarcertifierad"
-        ]
-},
     "channels": [
         {
             "name": "👋välkommen",
-            "topic": "Välkommen! Välj ditt lag så får du tillgång till resterande kanaler.\n\nWelcome! Select your team and you will have access to the remaining channels."
+            "topic": "Välkommen! Välj ditt lag så får du tillgång till resterande kanaler.\n\nWelcome! Select your team and you will have access to the remaining channels.",
+            "permissions": [
+                {
+                    "role": "Robotgruppen",
+                    "add": [],
+                    "remove": [
+                        "send_messages"
+                    ]
+                },
+                {
+                    "role": "@everyone",
+                    "add": [
+                        "view_channel"
+                    ],
+                    "remove": []
+                }
+            ]
         },
         {
             "name": "📢info",
-            "topic": "Här finner ni viktig information såsom datum och regler.\n\nHere you will find important information like dates and rules."
+            "topic": "Här finner ni viktig information såsom datum och regler.\n\nHere you will find important information like dates and rules.",
+            "permissions": []
+        },
+        {
+            "name": "📁resources",
+            "topic": "Här finner ni nyttiga filer såsom guider och exempelkod.\n\nHere you will find useful files like guides and example code.",
+            "permissions": []
+        },
+        {
+            "name": "🔨workshop",
+            "topic": "Här informerar vi specifikt om workshops vi arrangerar.\n\nHere we inform specifically about workshops we host.",
+            "permissions": []
+        },
+        {
+            "name": "📋feedback",
+            "topic": "Här kan ni lämna feedback och önskemål för att göra Robottävlingen ännu bättre. Här finner ni även formulär vi gärna vill att ni svarar på när tävlingen är över.\n\nHere you can leave feedback and requests to make the Robot Competition even better. Here you will also find forms we would like you to answer when the competition is over.",
+            "permissions": [
+                {
+                    "role": "Tävlande20XX",
+                    "add": [
+                        "send_messages"
+                    ],
+                    "remove": []
+                }
+            ]
+        },
+        {
+            "name": "🚪dörrklocka",
+            "topic": "Här kan ni utan tillgång till universitetets lokaler skvia för att be någon släppa in er. En ringklocka kommer även att låta i 3D-labbet.\n\nHere you without access to the university premises can write to ask someone to let you in. A bell will also ring in the 3D-lab.",
+            "permissions": [
+                {
+                    "role": "Gymnasie",
+                    "add": [
+                        "view_channel",
+                        "send_messages"
+                    ],
+                    "remove": []
+                },
+                {
+                    "role": "Tävlande20XX",
+                    "add": [],
+                    "remove": [
+                        "view_channel"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "general",
+            "topic": "Här kan ni skriva om saker som rör alla, till exempel ställa frågor eller informera om något.\n\nHere you can write about things that concern everyone, for example asking questions or informing about something.",
+            "permissions": [
+                {
+                    "role": "Tävlande20XX",
+                    "add": [
+                        "send_messages"
+                    ],
+                    "remove": []
+                }
+            ]
+        },
+        {
+            "name": "🖨3d-skrivare",
+            "topic": "Här har ni som är 3D-skrivarcertifierade en extra kanal.\n\nHere you have an extra channel if you are 3D-printer certified.",
+            "permissions": [
+                {
+                    "role": "3D-skrivarcertifierad",
+                    "add": [
+                        "view_channel",
+                        "send_messages"
+                    ],
+                    "remove": []
+                },
+                {
+                    "role": "Tävlande20XX",
+                    "add": [],
+                    "remove": [
+                        "view_channel"
+                    ]
+                }
+            ]
         }
     ]
 }
