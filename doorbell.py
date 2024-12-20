@@ -12,9 +12,11 @@ async def check_doorbell(message: Message, doorbell_settings: dict,
     if message.channel.name != doorbell_settings['channel']:
         return
 
-    # Only allow some members to ring the doorbell.
+    # Only allow some members to ring the doorbell if there is a doorbell role
+    # specified.
     author_roles = [role.name for role in message.author.roles]
-    if not doorbell_settings['allowed_user_role'] in author_roles:
+    allowed_user_role = doorbell_settings['allowed_user_role']
+    if allowed_user_role and not allowed_user_role in author_roles:
         await message.channel.send(doorbell_responses['invalidRole'])
         print(f'{message.author} tried to use the doorbell.')
         return
