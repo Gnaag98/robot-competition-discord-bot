@@ -19,15 +19,15 @@ utils.setup_logging(root=False)
 async def main():
     connection_retry_delay = 10 # seconds
 
+    # Load data from files.
+    with open('settings.json', encoding='utf-8') as json_file:
+        settings = json.load(json_file)
+    with open('responses.json', encoding='utf-8') as json_file:
+        doorbell_responses = json.load(json_file)
+
     # Keep the client connected. Only exits if the client stops without error.
     while True:
         try:
-            # Load data from files.
-            with open('settings.json', encoding='utf-8') as json_file:
-                settings = json.load(json_file)
-            with open('responses.json', encoding='utf-8') as json_file:
-                doorbell_responses = json.load(json_file)
-
             # XXX: Recreate client each try. Could probably be reused instead.
             client = HouseRobot(intents=intents, settings=settings,
                                 doorbell_responses=doorbell_responses)
@@ -39,7 +39,7 @@ async def main():
         # be caught instead.
         except ClientConnectorError:
             print('Connection failed.')
-            # XXX: Close the client since it is recreated each time.
+            # XXX: Close the client before recreating it.
             await client.close()
             print(f'Retrying in { connection_retry_delay } seconds...')
             await asyncio.sleep(connection_retry_delay)
@@ -48,5 +48,6 @@ async def main():
 if __name__ == '__main__':
     try:
         asyncio.run(main())
+    # Exit without error if user presses CTRL+C.
     except KeyboardInterrupt:
         pass
