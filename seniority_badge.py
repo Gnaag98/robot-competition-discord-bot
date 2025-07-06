@@ -33,8 +33,8 @@ async def adjust_badge_roles(member: Member, role_affixes: RoleAffixes,
         role for role in member.roles
         if role.name.startswith(role_affixes.year_prefix)]
 
-    # Clamp the badge index to the valid range [0, len(badge_roles))
-    badge_role_index = min(len(current_year_roles), len(badge_roles))
+    # Clamp the badge index to the valid range [0, len(badge_roles) - 1)
+    badge_role_index = min(len(current_year_roles), len(badge_roles) - 1)
 
     # Choose the correct role based on the number of years participated.
     correct_badge_role = badge_roles[badge_role_index]
