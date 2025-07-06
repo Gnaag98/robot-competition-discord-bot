@@ -3,10 +3,12 @@ import json
 from discord import app_commands, Client, Interaction, Member, Message, \
     PermissionOverwrite
 
-from doorbell import check_doorbell
-from invites import apply_invite_role, get_invite_uses
 from bot_logging import log
+from doorbell import check_doorbell
+from helpers import get_role_by_name
+from invites import apply_invite_role, get_invite_uses
 from seniority_badge import RoleAffixes, adjust_badge_roles
+from public_category import create_year_category, create_year_role
 
 
 class HouseRobot(Client):
@@ -57,25 +59,29 @@ class HouseRobot(Client):
         @app_commands.describe(year='The year of the competition.')
         @app_commands.checks.has_permissions(administrator=True)
         async def setup_channels(interaction: Interaction, year: int):
-            """Setup the category with public channels for the robot competition
-            at the specified year. Do nothing if the category already exists.
+            """Creates role(s) and public channels for the specified year.
+
+            Each year a new category with channels is used for all public
+            communication. Only the robot group and the participants with the
+            year-specific role has access to them.
+
+            This command sets up a new category with the required channels, and
+            creates the required role(s) specific to that year.
+
+            Parameters
+            ----------
+            year: int
+                competition year
             """
 
             guild = interaction.guild
             status_channel = self.status_channel[guild.id]
             setup_filename = 'category_setup.json'
-            new_role_name = f'Tävlande {year}'
-            previous_role_name = f'Tävlande {year - 1}'
-            new_category_name = f'Robottävlingen {year}'
-            previous_category_name = f'Robottävlingen {year - 1}'
 
             await log(status_channel, f'Setting up public channels for the Robot Competition {year}...')
 
             # Get the robot group role.
-            robot_group_role = next(
-                (role for role in guild.roles
-                    if role.name == 'Robotgruppen'),
-                None)
+            robot_group_role = get_role_by_name(guild, 'Robotgruppen')
             if not robot_group_role:
                 message = f'Aborted: Could not find the Robot group role.'
                 await log(status_channel, message)
@@ -83,23 +89,8 @@ class HouseRobot(Client):
                 return
 
             # Create the competitor role if it doesn't exist.
-            competitors_role = next(
-                (role for role in guild.roles if role.name == new_role_name),
-                None)
-            if competitors_role:
-                await log(status_channel, f'Role {new_role_name} already exists.')
-            else:
-                competitors_role = await guild.create_role(name=new_role_name)
-                await log(status_channel, f'Created role {new_role_name}.')
-            # If there are roles from previous years, make sure the new role is
-            # directly below the previous role.
-            previous_role = next(
-                (role for role in guild.roles
-                 if role.name == previous_role_name),
-                None)
-            if previous_role:
-                await competitors_role.edit(position=previous_role.position - 1)
-                await log(status_channel, f'Role {new_role_name} moved below {previous_role_name}.')
+            competitors_role = await create_year_role(
+                guild, status_channel, year, 'Tävlande')
 
             # Create overwrites for the category that can be synched with its channels.
             category_overwrites = {
@@ -127,28 +118,10 @@ class HouseRobot(Client):
                 await interaction.response.send_message(message)
                 return
 
-            # Abort if the category already exist.
-            if any(category.name == new_category_name for category
-                   in interaction.guild.categories):
-                message = f'Aborted: The category {new_category_name} already exists.'
-                await log(status_channel, message)
-                await interaction.response.send_message(message)
-                return
-            # Create the category at the top by default.
-            await interaction.response.send_message('Creating channels...')
-            category = await guild.create_category(new_category_name,
-                                                   overwrites=category_overwrites)
-
-            await log(status_channel, f'Created category {new_category_name}.')
-            # If there are categories from previous years, make sure the new
-            # category is directly above the previous category.
-            previous_category = next(
-                (category for category in guild.categories
-                 if category.name == previous_category_name),
-                None)
-            if previous_category:
-                await category.move(before=previous_category)
-                await log(status_channel, f'Category {new_category_name} moved above {previous_category_name}.')
+            # Create the category if it doesn't exist.
+            category = await create_year_category(
+                guild, status_channel, year, 'Robottävlingen',
+                category_overwrites)
 
             # Add channels to category.
             for channel_json in channels_json:
@@ -176,7 +149,7 @@ class HouseRobot(Client):
                             await log(status_channel, message)
                             await interaction.response.send_message(message)
                             return
-                    
+
                     add_kwargs = {attribute: True for attribute in channel_permission_json['add']}
                     remove_kwargs = {attribute: False for attribute in channel_permission_json['remove']}
                     if not role in channel_overwrites:

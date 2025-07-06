@@ -1,7 +1,7 @@
 import json
 
-import asyncio
 from aiohttp import ClientConnectorError
+import asyncio
 from discord import Intents, utils
 
 from house_robot import HouseRobot
@@ -12,7 +12,8 @@ intents = Intents.default()
 intents.members = True
 intents.message_content = True
 
-# Enable logging
+# XXX: Enable logging, I think. This is left from older versions of this code.
+# XXX: Don't know if the errors are stored to file or just printed to terminal.
 utils.setup_logging(root=False)
 
 
