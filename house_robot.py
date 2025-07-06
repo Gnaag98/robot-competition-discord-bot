@@ -5,10 +5,10 @@ from discord import app_commands, Client, Interaction, Member, Message, \
 
 from bot_logging import log
 from doorbell import check_doorbell
-from helpers import get_role_by_name
+from helpers import get_role_by_name, get_text_channel_by_name
 from invites import apply_invite_role, get_invite_uses
 from seniority_badge import RoleAffixes, adjust_badge_roles
-from public_category import create_year_category, create_year_role
+from public_category import create_channel_overwrites, create_or_update_text_channel, create_year_category, create_year_role
 
 
 class HouseRobot(Client):
@@ -56,7 +56,6 @@ class HouseRobot(Client):
             await log(status_channel, 'Done adjusting roles.')
 
         @self.tree.command(guilds=self.guilds)
-        @app_commands.describe(year='The year of the competition.')
         @app_commands.checks.has_permissions(administrator=True)
         async def setup_channels(interaction: Interaction, year: int):
             """Creates role(s) and public channels for the specified year.
@@ -78,6 +77,10 @@ class HouseRobot(Client):
             status_channel = self.status_channel[guild.id]
             setup_filename = 'category_setup.json'
 
+            await interaction.response.send_message((
+                f'Setting up the competition for year {year}.'
+                f' Check the progress in {status_channel.mention}.'))
+
             await log(status_channel, f'Setting up public channels for the Robot Competition {year}...')
 
             # Get the robot group role.
@@ -85,24 +88,24 @@ class HouseRobot(Client):
             if not robot_group_role:
                 message = f'Aborted: Could not find the Robot group role.'
                 await log(status_channel, message)
-                await interaction.response.send_message(message)
                 return
 
-            # Create the competitor role if it doesn't exist.
-            competitors_role = await create_year_role(
-                guild, status_channel, year, 'Tävlande')
+            # Create the year-specific competitor role if it doesn't exist.
+            year_specific_role_prefix = 'Tävlande'
+            year_specific_role = await create_year_role(
+                guild, status_channel, year, year_specific_role_prefix)
 
             # Create overwrites for the category that can be synched with its channels.
             category_overwrites = {
                 robot_group_role: PermissionOverwrite(
                     view_channel=True, connect=True, send_messages=True, speak=True),
-                competitors_role: PermissionOverwrite(
+                year_specific_role: PermissionOverwrite(
                     view_channel=True, connect=True),
                 guild.default_role: PermissionOverwrite(
                     view_channel=False, connect=False, send_messages=False, speak=False)
             }
 
-            # Parse the settings file into a dict.
+            # Parse the category setup file into a dict.
             try:
                 with open(setup_filename, encoding='utf-8') as json_file:
                     setup_json = json.load(json_file)
@@ -110,12 +113,10 @@ class HouseRobot(Client):
             except FileNotFoundError:
                 message = f'Aborted: Could not find the file {setup_filename}.'
                 await log(status_channel, message)
-                await interaction.response.send_message(message)
                 return
             except KeyError:
                 message = f'Aborted: The file {setup_filename} is missing required keys.'
                 await log(status_channel, message)
-                await interaction.response.send_message(message)
                 return
 
             # Create the category if it doesn't exist.
@@ -127,54 +128,30 @@ class HouseRobot(Client):
             for channel_json in channels_json:
                 channel_name: str = channel_json['name']
                 channel_topic: str = channel_json['topic']
-                channel_overwrites = {}
-                # Only adjust overwrites if there are any permissions to add or remove.
-                if 'permissions' in channel_json and channel_json['permissions']:
-                    # Perform deep copy of overwrites.
-                    for role, overwrite in category_overwrites.items():
-                        channel_overwrites[role] = PermissionOverwrite.from_pair(*overwrite.pair())
-                for channel_permission_json in channel_json['permissions']:
-                    role_name = channel_permission_json['role']
-                    if role_name == '@everyone':
-                        role = guild.default_role
-                    elif role_name == 'Tävlande20XX':
-                        role = competitors_role
-                    else:
-                        role = next(
-                            (role for role in guild.roles
-                            if role.name == role_name),
-                            None)
-                        if not role:
-                            message = f'Aborted: Could not find the role {role_name}.'
-                            await log(status_channel, message)
-                            await interaction.response.send_message(message)
-                            return
+                channel_permissions_json: dict = channel_json['permissions']
+                channel_overwrites = await create_channel_overwrites(
+                    guild,
+                    status_channel,
+                    category_overwrites,
+                    channel_permissions_json,
+                    year_specific_role,
+                    year_specific_role_prefix
+                    )
+                # Abort if an error occured.
+                if channel_overwrites is None:
+                    return
 
-                    add_kwargs = {attribute: True for attribute in channel_permission_json['add']}
-                    remove_kwargs = {attribute: False for attribute in channel_permission_json['remove']}
-                    if not role in channel_overwrites:
-                        channel_overwrites[role] = PermissionOverwrite()
-                    channel_overwrites[role].update(**add_kwargs, **remove_kwargs)
-                await guild.create_text_channel(
-                    name=channel_name,
-                    topic=channel_topic,
-                    overwrites=channel_overwrites,
-                    category=category)
-            """ try:
-                public_readonly_channels_json = channels_json['public_readonly']
-                competitors_readonly_channels_json = channels_json['competitors_readonly']
-                competitors_channels_json = channels_json['competitors']
-                private_channels_json = channels_json['private']
-            except KeyError:
-                message = f'Aborted: The file {setup_filename} is missing required keys for the channels.'
-                await log(status_channel, message)
-                await interaction.response.send_message(message)
-                return
-            for channel in public_readonly_channels_json:
-                await guild.create_text_channel(
-                    name=channel['name'],
-                    topic=channel['topic'],
-                    category=category) """
+                # Create channel, or update already existing one.
+                channel = await create_or_update_text_channel(
+                    category,
+                    status_channel,
+                    channel_name,
+                    channel_topic,
+                    channel_overwrites)
+
+            await log(
+                status_channel,
+                f'Done setting up the competition for year {year}.')
 
         await self.sync_commands()
 

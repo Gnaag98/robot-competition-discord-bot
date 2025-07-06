@@ -4,3 +4,6 @@ __pycache__/
 settings.json
 responses.json
 log.txt
+
+# GPIO
+.lgd-nfy0

@@ -1,4 +1,4 @@
-from discord import CategoryChannel, Guild, Role
+from discord import CategoryChannel, Guild, Role, TextChannel
 
 
 def get_role_by_name(guild: Guild, name: str) -> Role|None:
@@ -27,4 +27,12 @@ def get_first_category_by_prefix(
     return next(
         (category for category in guild.categories
             if category.name.startswith(prefix) and category != ignored_category),
+        None)
+
+
+def get_text_channel_by_name(
+    parent: Guild|CategoryChannel, name: str
+) -> TextChannel|None:
+    return next(
+        (channel for channel in parent.text_channels if channel.name == name),
         None)
